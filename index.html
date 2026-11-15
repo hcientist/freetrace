@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>FreeTrace</title>
+  <meta name="description" content="Turn your iPad into a lightbox: position a reference image, lock the screen, and trace it on paper.">
+  <meta name="theme-color" content="#111111">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="FreeTrace">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main id="stage" aria-label="Tracing surface">
+    <div id="refwrap"><img id="ref" alt="" draggable="false"></div>
+    <canvas id="draw" aria-label="Drawing layer"></canvas>
+  </main>
+
+  <!-- Empty state / image picker -->
+  <section id="picker" class="sheet" hidden>
+    <div class="card">
+      <h1>FreeTrace</h1>
+      <p class="sub">Turn your iPad into a lightbox. Pick an image, line it up, lock the screen, and trace on paper.</p>
+      <label class="btn primary big" for="file">Choose image…</label>
+      <input id="file" type="file" accept="image/*" hidden>
+      <form id="urlform" class="row">
+        <input id="url" type="url" inputmode="url" placeholder="…or paste an image URL" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <button class="btn" type="submit">Load</button>
+      </form>
+      <p class="hint">You can also paste an image or drop one onto the screen.</p>
+      <p id="pickerError" class="error" hidden></p>
+      <button id="pickerClose" class="btn ghost" type="button" hidden>Cancel</button>
+    </div>
+  </section>
+
+  <!-- Toolbar -->
+  <nav id="toolbar" aria-label="Tools">
+    <div class="group">
+      <button id="btnImage" class="btn" type="button" title="Change image">New image…</button>
+      <div class="seg" role="radiogroup" aria-label="Mode">
+        <button id="modeMove" class="btn" role="radio" type="button" title="Move image (M)">Move</button>
+        <button id="modeDraw" class="btn" role="radio" type="button" title="Draw (D)">Draw</button>
+      </div>
+    </div>
+
+    <div class="group" id="moveTools">
+      <button id="rotL" class="btn icon" type="button" title="Rotate left 90° ([)">⟲</button>
+      <button id="rotR" class="btn icon" type="button" title="Rotate right 90° (])">⟳</button>
+      <button id="flipH" class="btn icon" type="button" title="Flip horizontally (H)">⇋</button>
+      <button id="flipV" class="btn icon" type="button" title="Flip vertically (V)">⇵</button>
+      <button id="fit" class="btn" type="button" title="Fit to screen (F)">Fit</button>
+      <label class="slider" title="Image opacity">
+        <span>Opacity</span>
+        <input id="opacity" type="range" min="0.05" max="1" step="0.01">
+      </label>
+      <button id="gray" class="btn toggle" type="button" title="Grayscale">B/W</button>
+    </div>
+
+    <div class="group" id="drawTools" hidden>
+      <div class="seg" role="radiogroup" aria-label="Brush">
+        <button id="toolPen" class="btn" role="radio" type="button" title="Pen (P)">Pen</button>
+        <button id="toolEraser" class="btn" role="radio" type="button" title="Eraser (E)">Eraser</button>
+      </div>
+      <input id="color" type="color" title="Colour" aria-label="Colour">
+      <label class="slider" title="Brush size">
+        <span>Size</span>
+        <input id="size" type="range" min="1" max="60" step="1">
+      </label>
+      <button id="pencilOnly" class="btn toggle" type="button" title="Only Apple Pencil / mouse draws; fingers are ignored">Pencil only</button>
+      <button id="undo" class="btn icon" type="button" title="Undo (Ctrl+Z)">↶</button>
+      <button id="redo" class="btn icon" type="button" title="Redo (Ctrl+Shift+Z)">↷</button>
+      <button id="clear" class="btn" type="button" title="Clear drawing">Clear</button>
+      <button id="export" class="btn" type="button" title="Save drawing as PNG">Save…</button>
+    </div>
+
+    <div class="group">
+      <button id="showImg" class="btn toggle" type="button" title="Show / hide the reference image (I)">Image on</button>
+      <button id="lockBtn" class="btn primary" type="button" title="Lock screen for tracing (L)">Lock</button>
+      <button id="hideBar" class="btn icon ghost" type="button" title="Hide toolbar (Tab)">⌄</button>
+    </div>
+  </nav>
+  <button id="showBar" class="btn icon floating" type="button" title="Show toolbar" hidden>⌃</button>
+
+  <!-- Export sheet -->
+  <section id="exportSheet" class="sheet" hidden>
+    <div class="card">
+      <h2>Save drawing</h2>
+      <button id="expDrawing" class="btn primary big" type="button">Drawing only (transparent PNG)</button>
+      <button id="expDrawingWhite" class="btn big" type="button">Drawing only (white background)</button>
+      <button id="expBoth" class="btn big" type="button">Drawing + image</button>
+      <label class="check"><input id="expTrim" type="checkbox" checked> Crop to drawing</label>
+      <p id="exportError" class="error" hidden></p>
+      <button id="expCancel" class="btn ghost" type="button">Cancel</button>
+    </div>
+  </section>
+
+  <!-- Lock overlay -->
+  <div id="lock" hidden>
+    <button id="unlock" type="button" aria-label="Hold to unlock">
+      <svg viewBox="0 0 36 36" aria-hidden="true"><circle class="track" cx="18" cy="18" r="16"/><circle class="ring" cx="18" cy="18" r="16"/></svg>
+      <span>Hold to unlock</span>
+    </button>
+  </div>
+
+  <div id="hud" aria-live="polite"></div>
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <script src="app.js" type="module"></script>
+</body>
+</html>
